@@ -1,0 +1,53 @@
+Aqui o código que pega os dados do banco mundial.
+library(WDI)
+library(ggplot2)
+library(dplyr)
+# 1) Pega os dados para ---------
+# NY.GDP.MKTP.CN
+# GC.REV.XGRT.CN
+# GC.REV.GOTR.CN
+# GC.XPN.TOTL.CN
+
+data <- WDI(
+  country = "all",
+  indicator = c("NY.GDP.MKTP.CN", "GC.REV.XGRT.CN", "GC.REV.GOTR.CN", "GC.XPN.TOTL.CN","PA.NUS.FCRF","PX.REX.REER"),
+  start = 1960,
+  end = 2024,
+)
+
+# 2) Cria coluna para resultado nominal ----------
+data$RESULTADO_NOMINAL <- (data$GC.REV.XGRT.CN + data$GC.REV.GOTR.CN - data$GC.XPN.TOTL.CN) / data$NY.GDP.MKTP.CN
+
+# 3) Cria coluna para Variação cambial ------------
+data <- data %>% 
+  arrange(country, year) %>%
+  group_by(country) %>%
+  mutate(
+    d_cambio_nominal = (PA.NUS.FCRF - lag(PA.NUS.FCRF)) / lag(PA.NUS.FCRF) ,
+    d_cambio_real_efetivo = (PX.REX.REER - lag(PX.REX.REER)) / lag(PX.REX.REER) 
+  ) %>%
+  ungroup()
+
+
+# 4) Plota os resultados ------------
+ggplot(data %>% filter(year>2000), aes(x = d_cambio_real_efetivo, y = RESULTADO_NOMINAL)) +
+  geom_point() +
+  # Add regression line
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(title = "Resultado Nominal",
+       x = "d_cambio_real_efetivo",
+       y = "Resultado Nominal") +
+  theme_minimal() +
+  xlim(-1, 1) +
+  ylim(-1, 1) +
+  theme(legend.position = "none") #+ 
+  facet_wrap(~year)
+
+ggplot(data %>% filter(year>2010,country=="Brazil")) +
+  geom_line(aes(x = year , y = d_cambio_real_efetivo)) +
+  geom_text(aes(x = year , y = d_cambio_real_efetivo,label=year)) +
+  labs(title = "Variação Cambial Nominal",
+       x = "Ano",
+       y = "Variação Cambial Nominal") +
+  theme_minimal() 
+  
